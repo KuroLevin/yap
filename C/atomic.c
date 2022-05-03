@@ -2770,46 +2770,16 @@ static Int cont_current_atom(USES_REGS1) {
   else
     catom = NIL;
   if (catom == NIL) {
-    i++;
-    /* move away from current hash table line */
-    while (i < AtomHashTableSize) {
-      READ_LOCK(HashChain[i].AERWLock);
-      catom = HashChain[i].Entry;
-      READ_UNLOCK(HashChain[i].AERWLock);
-      if (catom != NIL) {
-        break;
-      }
-      i++;
-    }
-    if (i == AtomHashTableSize) {
-      cut_fail();
-    }
+    cut_succeed();
   }
   ap = RepAtom(catom);
   if (Yap_unify_constant(ARG1, MkAtomTerm(catom))) {
-    READ_LOCK(ap->ARWLock);
-    if (ap->NextOfAE == NIL) {
-      READ_UNLOCK(ap->ARWLock);
-      i++;
-      while (i < AtomHashTableSize) {
-        READ_LOCK(HashChain[i].AERWLock);
-        catom = HashChain[i].Entry;
-        READ_UNLOCK(HashChain[i].AERWLock);
-        if (catom != NIL) {
-          break;
-        }
-        i++;
-      }
-      if (i == AtomHashTableSize) {
-        cut_succeed();
-      } else {
-        EXTRA_CBACK_ARG(1, 1) = MkAtomTerm(catom);
-      }
+    catom = lfht_find_next_mtu(Yap_AtomTable, ap->StrOfAE);
+    if(catom){
+      EXTRA_CBACK_ARG(1, 1) = MkAtomTerm(catom);
     } else {
-      EXTRA_CBACK_ARG(1, 1) = MkAtomTerm(ap->NextOfAE);
-      READ_UNLOCK(ap->ARWLock);
+      cut_fail();
     }
-    EXTRA_CBACK_ARG(1, 2) = MkIntTerm(i);
     return true;
   } else {
     return false;
@@ -2825,14 +2795,13 @@ static Int current_atom(USES_REGS1) { /* current_atom(?Atom)
     } else
       cut_fail();
   }
-  READ_LOCK(HashChain[0].AERWLock);
-  if (HashChain[0].Entry != NIL) {
-    EXTRA_CBACK_ARG(1, 1) = MkAtomTerm(HashChain[0].Entry);
+  AtomEntry *ae = lfht_find_next_mtu(Yap_AtomTable, NULL);
+  if (ae) {
+    EXTRA_CBACK_ARG(1, 1) = MkAtomTerm(ae);
   } else {
+    //use MkAddressTerm to store somithing bigger than ~45bits
     EXTRA_CBACK_ARG(1, 1) = MkIntTerm(0);
   }
-  READ_UNLOCK(HashChain[0].AERWLock);
-  EXTRA_CBACK_ARG(1, 2) = MkIntTerm(0);
   return (cont_current_atom(PASS_REGS1));
 }
 

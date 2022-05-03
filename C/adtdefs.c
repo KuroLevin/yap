@@ -37,6 +37,8 @@ static char SccsId[] = "%W% %G%";
 
 #define GOLD_RATIO 11400714819323198485ULL
 
+struct lfht_head *Yap_AtomTable;
+
 uint64_t HashFunction(const unsigned char *CHP) {
   /* djb2 */
   uint64_t hash = 5381;
@@ -134,85 +136,30 @@ inline static Atom SearchInInvisible(const unsigned char *atom) {
     return (AbsAtom(chain));
 }
 
-static inline Atom SearchAtom(const unsigned char *p, Atom a) {
-  AtomEntry *ae;
-  const char *ps = (const char *)p;
-
-  /* search atom in chain */
-  while (a != NIL) {
-    ae = RepAtom(a);
-    if (strcmp(ae->StrOfAE, ps) == 0) {
-      return (a);
-    }
-    a = ae->NextOfAE;
-  }
-  return (NIL);
-}
-
-
 static Atom
 LookupAtom(const unsigned char *atom) { /* lookup atom in atom table */
-  uint64_t hash;
-  const unsigned char *p;
-  Atom a, na = NIL;
+  Atom na = NIL, ca;
   AtomEntry *ae;
-  size_t sz = AtomHashTableSize;
-  /* compute hash */
-  p = atom;
-
   if (atom==NULL) return NULL;
   if (atom[0]==0) return AtomEmptyAtom;
-    hash = HashFunction(p);
-    hash = hash % sz;
-  /* we'll start by holding a read lock in order to avoid contention */
-  READ_LOCK(HashChain[hash].AERWLock);
-  a = HashChain[hash].Entry;
-  /* search atom in chain */
-  na = SearchAtom(atom, a);
-  if (na != NIL) {
-    READ_UNLOCK(HashChain[hash].AERWLock);
-    return (na);
-  }
-  READ_UNLOCK(HashChain[hash].AERWLock);
-  /* we need a write lock */
-  WRITE_LOCK(HashChain[hash].AERWLock);
-/* concurrent version of Yap, need to take care */
-#if defined(YAPOR) || defined(THREADS)
-  if (a != HashChain[hash].Entry) {
-    a = HashChain[hash].Entry;
-    na = SearchAtom(atom, a);
-    if (na != NIL) {
-      WRITE_UNLOCK(HashChain[hash].AERWLock);
-      return na;
-    }
-  }
-#endif
-  /* add new atom to start of chain */
-  sz = strlen((const char *)atom);
+  size_t sz = strlen((const char *)atom);
   size_t asz = (sizeof *ae) + ( sz+1);
   ae = malloc(asz);
   if (ae == NULL) {
-    WRITE_UNLOCK(HashChain[hash].AERWLock);
     return NIL;
   }
   // enable fast hashing by making sure that
   // the last cell is fully initialized.
   CELL *aec = (CELL*)ae;
   aec[asz/(YAP_ALIGN+1)-1] = 0;
-  NOfAtoms++;
   na = AbsAtom(ae);
   ae->PropsOfAE = NIL;
   strcpy(ae->StrOfAE, (const char *)atom);
-
-  ae->NextOfAE = a;
-  HashChain[hash].Entry = na;
   INIT_RWLOCK(ae->ARWLock);
-  WRITE_UNLOCK(HashChain[hash].AERWLock);
-  if (NOfAtoms > 2 * AtomHashTableSize) {
-    Yap_signal(YAP_CDOVF_SIGNAL);
-  }
-
-  return na;
+  ca = lfht_insert(Yap_AtomTable, ae->StrOfAE, ae);
+  if (ca != ae)
+    free(ae);
+  return ca;
 }
 
 Atom Yap_LookupAtomWithLength(const char *atom,
@@ -255,64 +202,20 @@ lookup atom in atom table */
 
   void Yap_LookupAtomWithAddress(const char *atom,
 				 AtomEntry *ae) { /* lookup atom in atom table */
-    register CELL hash;
-    register const unsigned char *p;
-    Atom a;
-
     if (atom == NULL) return;
 
-    /* compute hash */
-    p = (const unsigned char *)atom;
-    hash = HashFunction(p) % AtomHashTableSize;
-    /* ask for a WRITE lock because it is highly unlikely we shall find anything
-     */
-    WRITE_LOCK(HashChain[hash].AERWLock);
-    a = HashChain[hash].Entry;
-    /* search atom in chain */
-    if (SearchAtom(p, a) != NIL) {
-      Yap_Error(SYSTEM_ERROR_INTERNAL, TermNil,
-		"repeated initialization for atom %s", ae);
-      WRITE_UNLOCK(HashChain[hash].AERWLock);
-      return;
-    }
-    /* add new atom to start of chain */
-    NOfAtoms++;
-    ae->NextOfAE = a;
-    HashChain[hash].Entry = AbsAtom(ae);
     ae->PropsOfAE = NIL;
     strcpy((char *)ae->StrOfAE, (char *)atom);
     INIT_RWLOCK(ae->ARWLock);
-    WRITE_UNLOCK(HashChain[hash].AERWLock);
+    
+    if (AbsAtom(ae) != lfht_insert(Yap_AtomTable, AbsAtom(ae)->StrOfAE, AbsAtom(ae)))
+      Yap_Error(SYSTEM_ERROR_INTERNAL, TermNil,
+		"repeated initialization for atom %s", ae);
   }
 
   void Yap_ReleaseAtom(Atom atom) { /* Releases an atom from the hash chain */
-    register Int hash;
-    register const unsigned char *p;
-    AtomEntry *inChain;
     AtomEntry *ap = RepAtom(atom);
-    char unsigned *name = ap->UStrOfAE;
-
-    /* compute hash */
-    p = name;
-    hash = HashFunction(p) % AtomHashTableSize;
-    WRITE_LOCK(HashChain[hash].AERWLock);
-    if (HashChain[hash].Entry == atom) {
-      NOfAtoms--;
-      HashChain[hash].Entry = ap->NextOfAE;
-      WRITE_UNLOCK(HashChain[hash].AERWLock);
-      return;
-    }
-    /* else */
-    inChain = RepAtom(HashChain[hash].Entry);
-    while (inChain && inChain->NextOfAE != atom)
-      inChain = RepAtom(inChain->NextOfAE);
-    if (!inChain)
-      return;
-    WRITE_LOCK(inChain->ARWLock);
-    inChain->NextOfAE = ap->NextOfAE;
-    WRITE_UNLOCK(inChain->ARWLock);
-    WRITE_UNLOCK(HashChain[hash].AERWLock);
-    ap->NextOfAE = NULL;
+    lfht_remove(Yap_AtomTable, ap->StrOfAE);
   }
 
   static Prop

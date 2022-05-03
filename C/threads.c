@@ -66,7 +66,7 @@ static Int p_nodebug_locks( USES_REGS1 ) { debug_locks = 0; debug_pe_locks = 0; 
 
 #if THREADS
 
-#include "threads.h"
+#include "ythreads.h"
 
 
 

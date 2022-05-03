@@ -1072,19 +1072,8 @@ static void InitLogDBErasedMarker(void) {
 static void InitEmptyWakeups(void) {}
 
 static void InitAtoms(void) {
-  int i;
-  AtomHashTableSize = MaxHash;
-  HashChain =
-      (AtomHashEntry *)Yap_AllocAtomSpace(sizeof(AtomHashEntry) * MaxHash);
-  if (HashChain == NULL) {
-    Yap_Error(SYSTEM_ERROR_FATAL, MkIntTerm(0),
-              "allocating initial atom table");
-  }
-  for (i = 0; i < MaxHash; ++i) {
-    INIT_RWLOCK(HashChain[i].AERWLock);
-    HashChain[i].Entry = NIL;
-  }
-  NOfAtoms = 0;
+  HashChain = NULL;
+  Yap_AtomTable = init_lfht_arbitrary(MAX_THREADS, HashFunction, strcmp, NULL);
 #if 0 && OLD_STYLE_INITIAL_ATOMS
   Yap_LookupAtomWithAddress("**", (AtomEntry *)&(SF_STORE->AtFoundVar));
   Yap_ReleaseAtom(AtomFoundVar);

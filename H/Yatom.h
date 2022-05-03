@@ -21,7 +21,9 @@
 #define YATOM_H 1
 
 #include "inline-only.h"
+#include "lfht.h"
 
+extern struct lfht_head *Yap_AtomTable;
 
 #ifdef USE_OFFSETS
 

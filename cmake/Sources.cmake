@@ -83,6 +83,7 @@ set (ENGINE_SOURCES
   C/yap-args.c
   C/write.c
   C/udi.c
+  C/lfht.c
   #packages/udi/rtree.c
   #packages/udi/rtree_udi.c
 
@@ -183,7 +184,7 @@ BEAM/beam.h
     ${CMAKE_SOURCE_DIR}/H/saveclause.h
     ${CMAKE_SOURCE_DIR}/H/sig.h
     ${CMAKE_SOURCE_DIR}/H/sshift.h
-    ${CMAKE_SOURCE_DIR}/H/threads.h
+    ${CMAKE_SOURCE_DIR}/H/ythreads.h
     ${CMAKE_SOURCE_DIR}/H/tracer.h
     ${CMAKE_SOURCE_DIR}/H/trim_trail.h
     ${CMAKE_SOURCE_DIR}/H/udi_private.h
@@ -191,6 +192,7 @@ BEAM/beam.h
     ${CMAKE_SOURCE_DIR}/H/uthash.h
     ${CMAKE_SOURCE_DIR}/H/walkclause.h
     ${CMAKE_SOURCE_DIR}/H/yerror.h
+    ${CMAKE_SOURCE_DIR}/H/lfht.h
 	)
 
 set (INCLUDE_HEADERS

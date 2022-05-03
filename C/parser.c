@@ -138,7 +138,7 @@ VarEntry *Yap_LookupVar(const char *var) /* lookup variable in variables table
     UInt hv;
 
     p = LOCAL_VarTable;
-    hv = HashFunction((unsigned char *)var) % AtomHashTableSize;
+    hv = HashFunction((unsigned char *)var);
     while (p != NULL) {
       CELL hpv = p->hv;
       if (hv == hpv) {
