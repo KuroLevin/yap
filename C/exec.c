@@ -1193,7 +1193,7 @@ static Int _user_expand_goal(USES_REGS1)
 			Yap_GetPredPropByFunc(FunctorGoalExpansion, USER_MODULE))) &&
       pe->OpcodeOfPred != FAIL_OPCODE &&
       pe->OpcodeOfPred != UNDEF_OPCODE  &&
-      Yap_execute_pred(pe, NULL PASS_REGS, true))
+      Yap_execute_pred(pe, NULL, true PASS_REGS))
   {
     return complete_ge( true, cmod, sl, creeping);
   }
