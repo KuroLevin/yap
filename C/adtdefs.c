@@ -35,16 +35,18 @@ static char SccsId[] = "%W% %G%";
 #include <string.h>
 #endif
 
+#define GOLD_RATIO 11400714819323198485ULL
+
 uint64_t HashFunction(const unsigned char *CHP) {
   /* djb2 */
   uint64_t hash = 5381;
   uint64_t c;
 
   while ((c = *CHP++) != '\0') {
-    /* hash = ((hash << 5) + hash) + c; hash * 33 + c */
-    hash = hash * (uint64_t)33 + c;
+    hash = ((hash << 5) + hash) + c;
+    //hash = hash * (uint64_t)33 + c;
   }
-  return hash;
+  return hash * GOLD_RATIO;
   /*
     UInt OUT=0, i = 1;
     while(*CHP != '\0') { OUT += (UInt)(*CHP++); }
