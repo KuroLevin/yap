@@ -31,7 +31,7 @@ static char SccsId[] = "%W% %G%";
 #include "yapio.h"
 #include <stdio.h>
 #include <wchar.h>
-#if HAVE_STRING_Hq
+#if HAVE_STRING_H
 #include <string.h>
 #endif
 
